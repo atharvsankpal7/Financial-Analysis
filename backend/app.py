@@ -13,6 +13,29 @@ CORS(app)
 
 db.init_app(app)
 
+@app.route('/api/user/<int:user_id>', methods=['GET'])
+def get_user(user_id):
+    try:
+        user = User.query.get_or_404(user_id)
+        
+        return jsonify({
+            'status': 'ok',
+            'profile': {
+                'id': user.id,
+                'name': user.name,
+                'age': user.age,
+                'income': user.income,
+                'risk_preference': user.risk_preference,
+                'investment_goals': user.investment_goals,
+                'selected_instruments': json.loads(user.selected_instruments),
+                'rates': json.loads(user.rates_json),
+                'investable_amount': user.investable_amount,
+                'created_at': user.created_at.isoformat()
+            }
+        })
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 400
+
 @app.route('/api/user', methods=['POST'])
 def create_user():
     try:
