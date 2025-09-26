@@ -1,9 +1,10 @@
 import requests
 import json
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from typing import Dict, Any, Optional
 import re
+from models import HistoricalPrice, db
 
 # In-memory cache for price data
 price_cache = {}
@@ -105,6 +106,69 @@ def fetch_metal_price(asset: str, country: Optional[str] = None, lat: Optional[f
             "error": str(e)
         }
         return result
+
+def get_historical_metal_price(asset: str, target_date: date) -> Dict[str, Any]:
+    """Get historical metal price for a specific date."""
+    try:
+        # Query database for historical price
+        historical_record = HistoricalPrice.query.filter_by(
+            asset=asset.lower(),
+            date=target_date
+        ).first()
+        
+        if historical_record:
+            return {
+                'price': historical_record.price,
+                'date': historical_record.date.isoformat(),
+                'unit': historical_record.unit,
+                'source': historical_record.source
+            }
+        
+        # If no exact date match, find closest date within 7 days
+        closest_record = HistoricalPrice.query.filter(
+            HistoricalPrice.asset == asset.lower(),
+            HistoricalPrice.date >= target_date - timedelta(days=7),
+            HistoricalPrice.date <= target_date + timedelta(days=7)
+        ).order_by(
+            db.func.abs(db.func.julianday(HistoricalPrice.date) - db.func.julianday(target_date))
+        ).first()
+        
+        if closest_record:
+            return {
+                'price': closest_record.price,
+                'date': closest_record.date.isoformat(),
+                'unit': closest_record.unit,
+                'source': closest_record.source
+            }
+        
+        # Fallback to seed prices if no historical data
+        fallback_prices = {
+            'gold': 6200.0,
+            'silver': 74.0
+        }
+        
+        return {
+            'price': fallback_prices.get(asset.lower(), 5000.0),
+            'date': target_date.isoformat(),
+            'unit': 'g',
+            'source': 'fallback'
+        }
+        
+    except Exception as e:
+        print(f"Error fetching historical price for {asset}: {e}")
+        # Emergency fallback
+        fallback_prices = {
+            'gold': 6200.0,
+            'silver': 74.0
+        }
+        
+        return {
+            'price': fallback_prices.get(asset.lower(), 5000.0),
+            'date': target_date.isoformat(),
+            'unit': 'g',
+            'source': 'fallback',
+            'error': str(e)
+        }
 
 def calc_fd_return(principal: float, rate_percent: float, years: float = 1) -> Dict[str, float]:
     """Calculate Fixed Deposit returns using compound interest."""
@@ -247,15 +311,22 @@ def recommend_allocation(user_data: Dict, current_prices: Dict, rates: Dict) -> 
             total_portfolio_value += returns['future_value']
             
         elif instrument in ['Gold', 'Silver']:
-            # For metals, assume historical baseline (30 days ago simulation)
+            # For metals, use actual historical data for baseline
             current_price = current_prices.get(instrument.lower(), {}).get('price', 5000)
-            baseline_price = current_price * 0.95  # Simulate 5% historical change
+            
+            # Get historical price from 30 days ago
+            historical_date = (datetime.utcnow() - timedelta(days=30)).date()
+            historical_data = get_historical_metal_price(instrument.lower(), historical_date)
+            baseline_price = historical_data.get('price', current_price * 0.95)
+            
             metal_roi = calc_metal_roi(current_price, baseline_price)
             projected_value = amount * (1 + metal_roi / 100)
             
             expected_returns[instrument] = {
                 'price': current_price,
                 'source': current_prices.get(instrument.lower(), {}).get('source', 'fallback'),
+                'historical_price': baseline_price,
+                'historical_date': historical_date.isoformat(),
                 'amount': amount,
                 'projected_value': projected_value,
                 'roi_percent': metal_roi

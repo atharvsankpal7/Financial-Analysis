@@ -15,6 +15,17 @@ class User(db.Model):
     investable_amount = db.Column(db.Float)     # amount user plans to invest
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+class HistoricalPrice(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    asset = db.Column(db.String, nullable=False)        # 'gold' or 'silver'
+    date = db.Column(db.Date, nullable=False)           # date for the price
+    price = db.Column(db.Float, nullable=False)         # price value
+    unit = db.Column(db.String, default='g')            # unit (grams)
+    source = db.Column(db.String, nullable=False)       # data source
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Create unique constraint on asset and date
+    __table_args__ = (db.UniqueConstraint('asset', 'date', name='unique_asset_date'),)
 class Recommendation(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Save, User } from 'lucide-react'
+import { buildApiUrl, API_ENDPOINTS } from '../constants'
 import UserForm from '../components/UserForm'
 
 export default function Profile() {
@@ -11,55 +12,34 @@ export default function Profile() {
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
-    // In production, fetch user data
-    // For now, create mock data based on seed
-    const mockUsers = {
-      '1': {
-        id: 1,
-        name: 'Test User 1',
-        age: 28,
-        income: 500000,
-        risk_preference: 'low',
-        investment_goals: 'short-term',
-        selected_instruments: ['FD', 'Bank'],
-        rates: { FD: 6.5, Bank: 3.25, SIP: 10 },
-        investable_amount: 100000
-      },
-      '2': {
-        id: 2,
-        name: 'Test User 2',
-        age: 34,
-        income: 900000,
-        risk_preference: 'medium',
-        investment_goals: 'long-term',
-        selected_instruments: ['FD', 'SIP', 'Bank'],
-        rates: { FD: 6.0, Bank: 3.5, SIP: 12 },
-        investable_amount: 300000
-      },
-      '3': {
-        id: 3,
-        name: 'Test User 3',
-        age: 42,
-        income: 1200000,
-        risk_preference: 'high',
-        investment_goals: 'long-term',
-        selected_instruments: ['SIP', 'FD'],
-        rates: { FD: 6.2, Bank: 3.0, SIP: 15 },
-        investable_amount: 500000
-      }
-    }
 
-    if (mockUsers[userId]) {
-      setUser(mockUsers[userId])
-    }
-    setIsLoading(false)
+    fetchUserData()
   }, [userId])
+
+  const fetchUserData = async () => {
+    try {
+      setIsLoading(true)
+      const response = await fetch(buildApiUrl(`${API_ENDPOINTS.USER}/${userId}`))
+      const data = await response.json()
+      
+      if (data.status === 'ok') {
+        setUser(data.profile)
+      } else {
+        throw new Error(data.message || 'Failed to fetch user data')
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error)
+      setUser(null)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const handleSubmit = async (formData) => {
     setIsSaving(true)
     
     try {
-      const response = await fetch(`/api/user/${userId}`, {
+      const response = await fetch(buildApiUrl(`${API_ENDPOINTS.USER}/${userId}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

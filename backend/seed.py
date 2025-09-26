@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from app import app
-from models import db, User, Recommendation
+from models import db, User, Recommendation, HistoricalPrice
 
 def create_seed_data():
     """Create and populate database with seed data."""
@@ -134,9 +134,50 @@ def create_seed_data():
         
         db.session.commit()
         
+        # Create some historical price data for testing
+        historical_prices = []
+        base_date = datetime.utcnow().date()
+        
+        # Generate 60 days of historical data for gold and silver
+        for days_back in range(1, 61):
+            historical_date = base_date - timedelta(days=days_back)
+            
+            # Gold prices with some variation
+            gold_base = 6200
+            gold_variation = (hash(str(historical_date)) % 200 - 100) * 2  # ±200 variation
+            gold_price = gold_base + gold_variation
+            
+            # Silver prices with some variation  
+            silver_base = 74
+            silver_variation = (hash(str(historical_date)) % 10 - 5) * 0.5  # ±2.5 variation
+            silver_price = silver_base + silver_variation
+            
+            historical_prices.extend([
+                HistoricalPrice(
+                    asset='gold',
+                    date=historical_date,
+                    price=gold_price,
+                    unit='g',
+                    source='seed'
+                ),
+                HistoricalPrice(
+                    asset='silver', 
+                    date=historical_date,
+                    price=silver_price,
+                    unit='g',
+                    source='seed'
+                )
+            ])
+        
+        for price_record in historical_prices:
+            db.session.add(price_record)
+        
+        db.session.commit()
+        
         print("✅ Database seeded successfully!")
         print(f"Created {len(users_data)} users")
         print(f"Created {len(sample_recommendations)} historical recommendations")
+        print(f"Created {len(historical_prices)} historical price records")
         print("\nTest users:")
         for i, user_data in enumerate(users_data, 1):
             print(f"  {i}. {user_data['name']} (ID: {i}) - {user_data['risk_preference']} risk")

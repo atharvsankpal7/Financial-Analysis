@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { Settings, TrendingUp, User, History } from 'lucide-react'
+import { buildApiUrl, API_ENDPOINTS } from '../constants'
 import RecommendationChart from '../components/RecommendationChart'
 import PredictionCard from '../components/PredictionCard'
 import HistoryTable from '../components/HistoryTable'
@@ -17,10 +18,26 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (userId) {
+      fetchUserData()
       fetchRecommendation()
       fetchHistory()
     }
   }, [userId])
+
+  const fetchUserData = async () => {
+    try {
+      const response = await fetch(buildApiUrl(`${API_ENDPOINTS.USER}/${userId}`))
+      const data = await response.json()
+      
+      if (data.status === 'ok') {
+        setUser(data.profile)
+      } else {
+        console.error('Error fetching user data:', data.message)
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error)
+    }
+  }
 
   const fetchRecommendation = async () => {
     try {
@@ -44,7 +61,7 @@ export default function Dashboard() {
       if (lat) params.append('lat', lat)
       if (lon) params.append('lon', lon)
       
-      const response = await fetch(`/api/recommendation/${userId}?${params}`)
+      const response = await fetch(buildApiUrl(`${API_ENDPOINTS.RECOMMENDATION}/${userId}?${params}`))
       const data = await response.json()
       
       if (data.status === 'ok') {
@@ -62,21 +79,13 @@ export default function Dashboard() {
 
   const fetchHistory = async () => {
     try {
-      const response = await fetch(`/api/user/${userId}/history`)
+      const response = await fetch(buildApiUrl(`${API_ENDPOINTS.USER_HISTORY}/${userId}/history`))
       const data = await response.json()
       
       if (data.status === 'ok') {
         setHistory(data.history)
-        // Assume first user data from first recommendation for display
-        if (data.history.length > 0) {
-          setUser({
-            id: userId,
-            name: `User ${userId}`, // Would come from user endpoint in production
-            investable_amount: Object.values(data.history[0].expected_returns)
-              .filter(r => typeof r === 'object' && r.amount)
-              .reduce((sum, r) => sum + r.amount, 0)
-          })
-        }
+      } else {
+        console.error('Error fetching history:', data.message)
       }
     } catch (error) {
       console.error('Error fetching history:', error)
@@ -157,7 +166,7 @@ export default function Dashboard() {
                   <div>
                     <p className="text-sm text-gray-600">Investment Amount</p>
                     <p className="text-lg font-semibold text-gray-900">
-                      ₹{user.investable_amount?.toLocaleString('en-IN')}
+                      ₹{user?.investable_amount?.toLocaleString('en-IN')}
                     </p>
                   </div>
                   <div>
@@ -168,7 +177,7 @@ export default function Dashboard() {
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Risk Level</p>
-                    <p className="text-lg font-semibold text-gray-900 capitalize">Medium</p>
+                    <p className="text-lg font-semibold text-gray-900 capitalize">{user?.risk_preference}</p>
                   </div>
                 </div>
               </div>

@@ -247,6 +247,43 @@ def get_user_history(user_id):
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+@app.route('/api/historical/<asset>')
+def get_historical_prices(asset):
+    try:
+        days = request.args.get('days', 30, type=int)
+        
+        # Get historical prices from database
+        historical_records = HistoricalPrice.query.filter_by(
+            asset=asset.lower()
+        ).order_by(HistoricalPrice.date.desc()).limit(days).all()
+        
+        historical_data = []
+        for record in historical_records:
+            historical_data.append({
+                'date': record.date.isoformat(),
+                'price': record.price,
+                'unit': record.unit,
+                'source': record.source
+            })
+        
+        return jsonify({
+            'status': 'ok',
+            'asset': asset,
+            'historical_data': historical_data
+        })
+        
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/health')
+def health_check():
+    """Health check endpoint to verify API is running."""
+    return jsonify({
+        'status': 'ok',
+        'message': 'FinSight AI API is running',
+        'timestamp': datetime.utcnow().isoformat()
+    })
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PiggyBank } from 'lucide-react'
+import { buildApiUrl, API_ENDPOINTS } from '../constants'
 import UserForm from '../components/UserForm'
 
 export default function Onboarding() {
@@ -25,7 +26,7 @@ export default function Onboarding() {
         }
       }
 
-      const response = await fetch('/api/user', {
+      const response = await fetch(buildApiUrl(API_ENDPOINTS.USER), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
